@@ -1,20 +1,37 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import 'react-native-gesture-handler';
+import React, { useEffect } from 'react';
+import * as NavigationBar from 'expo-navigation-bar';
+import { StatusBar } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { NavigationContainer, DarkTheme } from '@react-navigation/native';
+import RootNavigator from './src/navigation/RootNavigator';
+import { PregnancyProvider } from './src/context/PregnancyContext';
 
-export default function App() {
-  return (
-    <View style={styles.container}>
-      <Text>Open up App.js to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
-  );
+const AppTheme = {
+  ...DarkTheme,
+  colors: {
+    ...DarkTheme.colors,
+    background: '#000000',
+    card: '#111',
+    text: '#FFF',
+  }
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+export default function App() {
+  useEffect(() => {
+    // Set Android Navigation Bar to Black
+    NavigationBar.setBackgroundColorAsync("#000000");
+    NavigationBar.setButtonStyleAsync("light"); // White icons on black bg
+  }, []);
+
+  return (
+    <SafeAreaProvider>
+      <StatusBar barStyle="light-content" />
+      <PregnancyProvider>
+        <NavigationContainer theme={AppTheme}>
+          <RootNavigator />
+        </NavigationContainer>
+      </PregnancyProvider>
+    </SafeAreaProvider>
+  );
+}

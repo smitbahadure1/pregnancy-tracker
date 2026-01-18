@@ -1,0 +1,63 @@
+import React from 'react';
+import { createStackNavigator } from '@react-navigation/stack';
+import TabNavigator from './TabNavigator';
+import BreathingScreen from '../screens/Tools/BreathingScreen';
+import KickCounterScreen from '../screens/Tools/KickCounterScreen';
+import WeightEntryScreen from '../screens/Tools/WeightEntryScreen';
+import WaterEntryScreen from '../screens/Tools/WaterEntryScreen';
+import SleepEntryScreen from '../screens/Tools/SleepEntryScreen';
+import OnboardingScreen from '../screens/Onboarding/OnboardingScreen';
+
+const Stack = createStackNavigator();
+
+export default function RootNavigator() {
+    return (
+        <Stack.Navigator screenOptions={{ headerShown: false }} initialRouteName="Onboarding">
+            <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+            <Stack.Screen name="MainTabs" component={TabNavigator} />
+            <Stack.Screen
+                name="Breathing"
+                component={BreathingScreen}
+                options={{
+                    presentation: 'fullScreenModal',
+                    animationEnabled: true,
+                }}
+            />
+            <Stack.Screen
+                name="KickCounter"
+                component={KickCounterScreen}
+                options={{
+                    presentation: 'fullScreenModal',
+                    animationEnabled: true,
+                }}
+            />
+            <Stack.Screen
+                name="WeightEntry"
+                component={WeightEntryScreen}
+                options={{
+                    presentation: 'transparentModal',
+                    animationEnabled: true,
+                    cardOverlayEnabled: true,
+                }}
+            />
+            <Stack.Screen
+                name="WaterEntry"
+                component={WaterEntryScreen}
+                options={{
+                    presentation: 'transparentModal',
+                    animationEnabled: true,
+                    cardOverlayEnabled: true,
+                }}
+            />
+            <Stack.Screen
+                name="SleepEntry"
+                component={SleepEntryScreen}
+                options={{
+                    presentation: 'transparentModal',
+                    animationEnabled: true,
+                    cardOverlayEnabled: true,
+                }}
+            />
+        </Stack.Navigator>
+    );
+}
