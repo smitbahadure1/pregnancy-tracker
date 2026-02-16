@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Pregnancy Tracker",
-    "slug": "pregnancy-tracker",
+    "name": "Bloom",
+    "slug": "bloom-pregnancy-tracker-smit",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -26,6 +26,11 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "9a3b0969-2f0c-4a9b-836d-5e786924f707"
+      }
     }
   }
 }

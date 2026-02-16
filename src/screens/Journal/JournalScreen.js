@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Plus, NotebookPen, Calendar, Smile, Frown, Meh, Save, X } from 'lucide-react-native';
+import { Plus, NotebookPen, Calendar, Smile, Frown, Meh, Save, X, Footprints, Droplet, Moon, Scale } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Haptics from 'expo-haptics';
+import { usePregnancy } from '../../context/PregnancyContext';
 
 export default function JournalScreen() {
+    const { history, updateLog } = usePregnancy();
     const [isWriting, setIsWriting] = useState(false);
     const [newEntry, setNewEntry] = useState('');
     const [mood, setMood] = useState(null);
@@ -14,13 +17,20 @@ export default function JournalScreen() {
         { id: 1, date: 'Oct 24', title: 'Big Announcement', text: 'We finally told our parents today! There were so many tears of joy.', mood: 'happy' },
     ]);
 
+    // In handleSave, sync mood to global daily log
     const handleSave = () => {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         if (!newEntry.trim()) return;
+
+        // Sync mood to "Today's Log" for the weekly summary
+        if (mood) {
+            updateLog('mood', mood.charAt(0).toUpperCase() + mood.slice(1)); // Capitalize
+        }
 
         const entry = {
             id: Date.now(),
             date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-            title: 'Daily Log', // Could add a title input too
+            title: 'Daily Log',
             text: newEntry,
             mood: mood
         };
@@ -43,7 +53,14 @@ export default function JournalScreen() {
                 <>
                     <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
                         {/* Write Button Card */}
-                        <TouchableOpacity style={styles.writeCard} onPress={() => setIsWriting(true)} activeOpacity={0.8}>
+                        <TouchableOpacity
+                            style={styles.writeCard}
+                            onPress={() => {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                setIsWriting(true);
+                            }}
+                            activeOpacity={0.8}
+                        >
                             <LinearGradient
                                 colors={['#FF4D6D', '#FF8FAB']}
                                 start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
@@ -58,6 +75,63 @@ export default function JournalScreen() {
                                 </View>
                             </LinearGradient>
                         </TouchableOpacity>
+
+                        {/* Weekly Summaries */}
+                        {history && history.length > 0 && (
+                            <View>
+                                <Text style={styles.sectionTitle}>Weekly Summaries</Text>
+                                <ScrollView
+                                    horizontal
+                                    showsHorizontalScrollIndicator={false}
+                                    contentContainerStyle={{ gap: 12, paddingRight: 20 }}
+                                >
+                                    {history.map((weekData, index) => (
+                                        <View key={index} style={styles.summaryCard}>
+                                            <View style={styles.summaryHeader}>
+                                                <View>
+                                                    <Text style={styles.summaryWeek}>Week {weekData.week}</Text>
+                                                    <Text style={styles.summaryDate}>{weekData.startDate} - {weekData.endDate}</Text>
+                                                </View>
+                                                <View style={[styles.moodBadge,
+                                                weekData.mood === 'Happy' && { backgroundColor: '#FFD93D20' },
+                                                weekData.mood === 'Tired' && { backgroundColor: '#4CC9F020' },
+                                                weekData.mood === 'Excited' && { backgroundColor: '#FF4D6D20' },
+                                                ]}>
+                                                    <Text style={[styles.moodText,
+                                                    weekData.mood === 'Happy' && { color: '#FFD93D' },
+                                                    weekData.mood === 'Tired' && { color: '#4CC9F0' },
+                                                    weekData.mood === 'Excited' && { color: '#FF4D6D' },
+                                                    ]}>{weekData.mood}</Text>
+                                                </View>
+                                            </View>
+
+                                            <View style={styles.statsGrid}>
+                                                <View style={styles.statItem}>
+                                                    <Scale size={14} color="#E4C1F9" style={{ marginBottom: 4 }} />
+                                                    <Text style={styles.statValue}>{weekData.avgWeight}</Text>
+                                                    <Text style={styles.statLabel}>Avg Weight</Text>
+                                                </View>
+                                                <View style={styles.statItem}>
+                                                    <Moon size={14} color="#A9DEF9" style={{ marginBottom: 4 }} />
+                                                    <Text style={styles.statValue}>{weekData.avgSleep}</Text>
+                                                    <Text style={styles.statLabel}>Avg Sleep</Text>
+                                                </View>
+                                                <View style={styles.statItem}>
+                                                    <Droplet size={14} color="#4CC9F0" style={{ marginBottom: 4 }} />
+                                                    <Text style={styles.statValue}>{weekData.avgWater}</Text>
+                                                    <Text style={styles.statLabel}>Avg Water</Text>
+                                                </View>
+                                                <View style={styles.statItem}>
+                                                    <Footprints size={14} color="#FF99C8" style={{ marginBottom: 4 }} />
+                                                    <Text style={styles.statValue}>{weekData.totalKicks}</Text>
+                                                    <Text style={styles.statLabel}>Total Kicks</Text>
+                                                </View>
+                                            </View>
+                                        </View>
+                                    ))}
+                                </ScrollView>
+                            </View>
+                        )}
 
                         <Text style={styles.sectionTitle}>Recent Entries</Text>
 
@@ -84,7 +158,10 @@ export default function JournalScreen() {
                 >
                     <View style={styles.editorContainer}>
                         <View style={styles.editorHeader}>
-                            <TouchableOpacity onPress={() => setIsWriting(false)}>
+                            <TouchableOpacity onPress={() => {
+                                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                                setIsWriting(false);
+                            }}>
                                 <X size={24} color="#FFF" />
                             </TouchableOpacity>
                             <Text style={styles.editorTitle}>New Entry</Text>
@@ -96,13 +173,22 @@ export default function JournalScreen() {
                         <View style={styles.moodSelector}>
                             <Text style={styles.label}>Mood:</Text>
                             <View style={{ flexDirection: 'row', gap: 16 }}>
-                                <TouchableOpacity onPress={() => setMood('happy')}>
+                                <TouchableOpacity onPress={() => {
+                                    Haptics.selectionAsync();
+                                    setMood('happy');
+                                }}>
                                     <Smile size={28} color={mood === 'happy' ? '#FFD93D' : '#333'} />
                                 </TouchableOpacity>
-                                <TouchableOpacity onPress={() => setMood('neutral')}>
+                                <TouchableOpacity onPress={() => {
+                                    Haptics.selectionAsync();
+                                    setMood('neutral');
+                                }}>
                                     <Meh size={28} color={mood === 'neutral' ? '#CCC' : '#333'} />
                                 </TouchableOpacity>
-                                <TouchableOpacity onPress={() => setMood('sad')}>
+                                <TouchableOpacity onPress={() => {
+                                    Haptics.selectionAsync();
+                                    setMood('sad');
+                                }}>
                                     <Frown size={28} color={mood === 'sad' ? '#4CC9F0' : '#333'} />
                                 </TouchableOpacity>
                             </View>
@@ -263,5 +349,65 @@ const styles = StyleSheet.create({
         color: '#FFF',
         fontSize: 16,
         textAlignVertical: 'top',
+    },
+
+    // Weekly Summary
+    summaryCard: {
+        backgroundColor: '#1C1C1E',
+        borderRadius: 16,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: '#333',
+        width: 280,
+    },
+    summaryHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: 16,
+        paddingBottom: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#333',
+    },
+    summaryWeek: {
+        color: '#FFF',
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginBottom: 4,
+    },
+    summaryDate: {
+        color: '#888',
+        fontSize: 12,
+    },
+    moodBadge: {
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 6,
+    },
+    moodText: {
+        fontSize: 12,
+        fontWeight: 'bold',
+    },
+    statsGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 12,
+    },
+    statItem: {
+        width: '47%',
+        backgroundColor: '#2C2C2E',
+        borderRadius: 12,
+        padding: 10,
+        alignItems: 'center',
+    },
+    statValue: {
+        color: '#FFF',
+        fontSize: 14,
+        fontWeight: 'bold',
+        marginBottom: 2,
+    },
+    statLabel: {
+        color: '#888',
+        fontSize: 10,
     },
 });

@@ -21,7 +21,7 @@ export default function App() {
   useEffect(() => {
     // Set Android Navigation Bar to Black
     NavigationBar.setBackgroundColorAsync("#000000");
-    NavigationBar.setButtonStyleAsync("light"); // White icons on black bg
+    NavigationBar.setButtonStyleAsync("light");
   }, []);
 
   return (

@@ -1,8 +1,9 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Image } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Image, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Camera, Plus, Share2, MoreHorizontal, Image as ImageIcon } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as ImagePicker from 'expo-image-picker';
 import { usePregnancy } from '../../context/PregnancyContext';
 
 const { width } = Dimensions.get('window');
@@ -19,12 +20,16 @@ const MEMORIES = [
 
 const PhotoCard = ({ item }) => (
     <TouchableOpacity style={[styles.cardContainer, { height: item.height }]}>
-        <View style={[styles.photoPlaceholder, { backgroundColor: item.color }]}>
-            <ImageIcon size={32} color="rgba(0,0,0,0.3)" />
-            <View style={styles.weekBadge}>
-                <Text style={styles.weekBadgeText}>Week {item.week}</Text>
+        {item.uri ? (
+            <Image source={{ uri: item.uri }} style={StyleSheet.absoluteFill} resizeMode="cover" />
+        ) : (
+            <View style={[styles.photoPlaceholder, { backgroundColor: item.color }]}>
+                <ImageIcon size={32} color="rgba(0,0,0,0.3)" />
+                <View style={styles.weekBadge}>
+                    <Text style={styles.weekBadgeText}>Week {item.week}</Text>
+                </View>
             </View>
-        </View>
+        )}
         <LinearGradient
             colors={['transparent', 'rgba(0,0,0,0.8)']}
             style={styles.photoOverlay}
@@ -47,6 +52,40 @@ const NoteCard = ({ item }) => (
 export default function MemoriesScreen() {
     const { stats } = usePregnancy();
     const currentWeek = stats?.currentWeek || 12;
+    const [memories, setMemories] = useState(MEMORIES);
+    const [permission, requestPermission] = ImagePicker.useCameraPermissions();
+
+    const handleCamera = async () => {
+        if (!permission) return;
+        
+        if (!permission.granted) {
+            const { granted } = await requestPermission();
+            if (!granted) {
+                Alert.alert("Permission Required", "Please allow camera access to take photos of your bump journey.");
+                return;
+            }
+        }
+
+        const result = await ImagePicker.launchCameraAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            quality: 0.8,
+            aspect: [4, 5],
+        });
+
+        if (!result.canceled && result.assets && result.assets.length > 0) {
+            const newPhoto = {
+                id: Date.now().toString(),
+                type: 'photo',
+                week: currentWeek,
+                date: new Date().toLocaleDateString('en-US', { day: 'numeric', month: 'short' }),
+                color: '#FF99C8',
+                height: 220, // Standard height for new photos
+                uri: result.assets[0].uri
+            };
+            setMemories(prev => [newPhoto, ...prev]);
+        }
+    };
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
@@ -57,7 +96,7 @@ export default function MemoriesScreen() {
                     <Text style={styles.headerTitle}>Bump Gallery</Text>
                     <Text style={styles.headerSubtitle}>Your Week {currentWeek} Highlights</Text>
                 </View>
-                <TouchableOpacity style={styles.cameraBtn}>
+                <TouchableOpacity style={styles.cameraBtn} onPress={handleCamera}>
                     <Camera size={24} color="#FFF" />
                 </TouchableOpacity>
             </View>
@@ -67,20 +106,20 @@ export default function MemoriesScreen() {
                 <View style={styles.masonryContainer}>
                     {/* Left Column */}
                     <View style={styles.column}>
-                        <View style={styles.addCard}>
+                        <TouchableOpacity style={styles.addCard} onPress={handleCamera}>
                             <View style={styles.addIcon}>
                                 <Plus size={32} color="#FFF" />
                             </View>
                             <Text style={styles.addText}>Add Week {currentWeek} Photo</Text>
-                        </View>
-                        {MEMORIES.filter((_, i) => i % 2 === 0).map(item => (
+                        </TouchableOpacity>
+                        {memories.filter((_, i) => i % 2 === 0).map(item => (
                             item.type === 'photo' ? <PhotoCard key={item.id} item={item} /> : <NoteCard key={item.id} item={item} />
                         ))}
                     </View>
 
                     {/* Right Column */}
                     <View style={styles.column}>
-                        {MEMORIES.filter((_, i) => i % 2 !== 0).map(item => (
+                        {memories.filter((_, i) => i % 2 !== 0).map(item => (
                             item.type === 'photo' ? <PhotoCard key={item.id} item={item} /> : <NoteCard key={item.id} item={item} />
                         ))}
                     </View>

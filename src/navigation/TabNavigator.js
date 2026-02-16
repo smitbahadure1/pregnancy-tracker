@@ -10,11 +10,18 @@ import JourneyScreen from '../screens/Journey/JourneyScreen';
 import BodyScreen from '../screens/Body/BodyScreen';
 import ProfileScreen from '../screens/Profile/ProfileScreen';
 
+import * as Haptics from 'expo-haptics';
+
 const Tab = createBottomTabNavigator();
 
 export default function TabNavigator() {
     return (
         <Tab.Navigator
+            screenListeners={{
+                tabPress: () => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                },
+            }}
             screenOptions={{
                 headerShown: false,
                 tabBarStyle: styles.tabBar,

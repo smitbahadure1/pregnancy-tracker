@@ -24,7 +24,7 @@ const StepIndicator = ({ current, total }) => (
 );
 
 export default function OnboardingScreen({ navigation }) {
-    const { setDueDate, setWaterTarget, setSleepGoal, setWeight } = usePregnancy();
+    const { setDueDate, setWaterTarget, setSleepGoal, setWeight, setOnboardingComplete } = usePregnancy();
     const [step, setStep] = useState(0);
 
     // Temp State for inputs
@@ -52,7 +52,7 @@ export default function OnboardingScreen({ navigation }) {
         }, 200);
     };
 
-    const finishOnboarding = () => {
+    const finishOnboarding = async () => {
         // Save Everything
         const today = new Date();
         const daysGone = weekInput * 7;
@@ -64,9 +64,7 @@ export default function OnboardingScreen({ navigation }) {
         setWaterTarget(waterInput);
         setSleepGoal(sleepInput);
         setWeight(weightInput);
-
-        // Navigate to App
-        navigation.replace('MainTabs');
+        setOnboardingComplete(true);
     };
 
     const renderContent = () => {

@@ -43,7 +43,7 @@ const ProgressBar = ({ progress, color }) => (
 );
 
 export default function TodayScreen({ navigation }) {
-    const { stats, weight, water, waterTarget, sleep } = usePregnancy();
+    const { stats, weight, water, waterTarget, sleep, kickCount, setKickCount } = usePregnancy();
 
     // Get pseudo-random mantra based on date
     const today = new Date();
@@ -57,8 +57,6 @@ export default function TodayScreen({ navigation }) {
     const dailyMantra = dailyMantras[dayOfYear % dailyMantras.length];
 
 
-
-    const [kickCount, setKickCount] = useState(12);
 
     const handleKick = () => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -77,9 +75,6 @@ export default function TodayScreen({ navigation }) {
                         <Text style={styles.dateText}>{currentDate}</Text>
                         <Text style={styles.greetingText}>Today</Text>
                     </View>
-                    <TouchableOpacity style={styles.profileBtn}>
-                        <View style={styles.avatar} />
-                    </TouchableOpacity>
                 </View>
 
                 {/* BENTO GRID LAYOUT */}
@@ -88,31 +83,36 @@ export default function TodayScreen({ navigation }) {
                     {/* COL 1 */}
                     <View style={styles.column}>
                         {/* 1. Pregnancy Status (Tall) */}
-                        <BentoCard
-                            height={220}
-                            style={{ backgroundColor: '#FF4D6D' }}
-                            title={`Week ${stats.currentWeek}`}
-                            subtitle={`Trimester ${stats.trimester}`}
-                            icon={Calendar}
-                            iconColor="#FFF"
-                        >
-                            <View style={{ flex: 1, justifyContent: 'flex-end' }}>
-                                <Text style={styles.bigStat}>Day {stats.currentDayOfWeek}</Text>
-                                <Text style={styles.statLabel}>{stats.daysRemaining} Days to go</Text>
-                                <View style={{ marginTop: 15 }}>
-                                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 }}>
-                                        <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '600' }}>PROGRESS</Text>
-                                        <Text style={{ color: '#FFF', fontSize: 12, fontWeight: 'bold' }}>{stats.progressPercent}%</Text>
-                                    </View>
-                                    <View style={{ height: 6, backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 3 }}>
-                                        <View style={{ width: `${stats.progressPercent}%`, height: '100%', backgroundColor: '#FFF', borderRadius: 3 }} />
+                        <TouchableOpacity onPress={() => navigation.navigate('Profile', { openEdit: 'date' })} activeOpacity={0.9}>
+                            <BentoCard
+                                height={220}
+                                style={{ backgroundColor: '#FF4D6D' }}
+                                title={`Week ${stats.currentWeek}`}
+                                subtitle={`Trimester ${stats.trimester}`}
+                                icon={Calendar}
+                                iconColor="#FFF"
+                            >
+                                <View style={{ flex: 1, justifyContent: 'flex-end' }}>
+                                    <Text style={styles.bigStat}>Day {stats.currentDayOfWeek}</Text>
+                                    <Text style={styles.statLabel}>{stats.daysRemaining} Days to go</Text>
+                                    <View style={{ marginTop: 15 }}>
+                                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 5 }}>
+                                            <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12, fontWeight: '600' }}>PROGRESS</Text>
+                                            <Text style={{ color: '#FFF', fontSize: 12, fontWeight: 'bold' }}>{stats.progressPercent}%</Text>
+                                        </View>
+                                        <View style={{ height: 6, backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 3 }}>
+                                            <View style={{ width: `${stats.progressPercent}%`, height: '100%', backgroundColor: '#FFF', borderRadius: 3 }} />
+                                        </View>
                                     </View>
                                 </View>
-                            </View>
-                        </BentoCard>
+                            </BentoCard>
+                        </TouchableOpacity>
 
                         {/* 3. Hydration (Small) */}
-                        <TouchableOpacity onPress={() => navigation.navigate('WaterEntry')} activeOpacity={0.9}>
+                        <TouchableOpacity onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            navigation.navigate('WaterEntry');
+                        }} activeOpacity={0.9}>
                             <BentoCard
                                 height={140}
                                 title="Water"
@@ -187,7 +187,10 @@ export default function TodayScreen({ navigation }) {
 
                                 <View style={{ alignItems: 'center', marginBottom: 5 }}>
                                     <TouchableOpacity
-                                        onPress={() => navigation.navigate('Breathing')}
+                                        onPress={() => {
+                                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                                            navigation.navigate('Breathing');
+                                        }}
                                         style={{
                                             paddingHorizontal: 20,
                                             paddingVertical: 8,
@@ -208,7 +211,10 @@ export default function TodayScreen({ navigation }) {
                 <View style={styles.gridContainer}>
                     {/* Col 1: Sleep (Tall) */}
                     <View style={styles.column}>
-                        <TouchableOpacity onPress={() => navigation.navigate('SleepEntry')} activeOpacity={0.9}>
+                        <TouchableOpacity onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            navigation.navigate('SleepEntry');
+                        }} activeOpacity={0.9}>
                             <BentoCard
                                 height={212}
                                 style={{ backgroundColor: '#A9DEF9' }}
@@ -232,7 +238,10 @@ export default function TodayScreen({ navigation }) {
                     {/* Col 2: Stacked Stats */}
                     <View style={styles.column}>
                         {/* Weight */}
-                        <TouchableOpacity onPress={() => navigation.navigate('WeightEntry')} activeOpacity={0.9}>
+                        <TouchableOpacity onPress={() => {
+                            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                            navigation.navigate('WeightEntry');
+                        }} activeOpacity={0.9}>
                             <BentoCard
                                 height={100}
                                 style={{ backgroundColor: '#E4C1F9' }}
@@ -242,7 +251,7 @@ export default function TodayScreen({ navigation }) {
                                 titleColor="#000"
                             >
                                 <View style={{ flex: 1, justifyContent: 'flex-end' }}>
-                                    <Text style={[styles.midStat, { color: '#000', fontSize: 26 }]}>{weight.toFixed(1)}<Text style={{ fontSize: 14, opacity: 0.6 }}>kg</Text></Text>
+                                    <Text style={[styles.midStat, { color: '#000', fontSize: 26 }]}>{(Number(weight) || 0).toFixed(1)}<Text style={{ fontSize: 14, opacity: 0.6 }}>kg</Text></Text>
                                     <Text style={{ color: '#000', fontSize: 10, opacity: 0.6, marginTop: 4 }}>Tap to update</Text>
                                 </View>
                             </BentoCard>
