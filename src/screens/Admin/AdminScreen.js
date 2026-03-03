@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Users, Clock, Mail, LogIn, LogOut, Shield } from 'lucide-react-native';
-import { supabase } from '../../lib/supabase';
+import { db } from '../../lib/firebase';
+import { collection, getDocs, orderBy, query } from 'firebase/firestore';
 
 const { width } = Dimensions.get('window');
 
@@ -20,20 +21,16 @@ export default function AdminScreen() {
 
     const fetchAllUsers = async () => {
         try {
-            // Get all profiles with their activity
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .order('created_at', { ascending: false });
+            const profilesRef = collection(db, 'profiles');
+            const q = query(profilesRef, orderBy('created_at', 'desc'));
+            const querySnapshot = await getDocs(q);
 
-            if (error) {
-                console.log('Error fetching users:', error);
-                return;
-            }
+            const data = [];
+            querySnapshot.forEach((doc) => {
+                data.push(doc.data());
+            });
 
-            if (data) {
-                setUsers(data);
-            }
+            setUsers(data);
         } catch (err) {
             console.log('Error:', err);
         } finally {
@@ -44,9 +41,9 @@ export default function AdminScreen() {
     const formatDate = (dateString) => {
         if (!dateString) return 'Never';
         const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', { 
-            month: 'short', 
-            day: 'numeric', 
+        return date.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
             year: 'numeric',
             hour: '2-digit',
             minute: '2-digit'
@@ -101,7 +98,7 @@ export default function AdminScreen() {
 
                     {/* Users List */}
                     <Text style={styles.sectionTitle}>Active Accounts</Text>
-                    
+
                     {users.length === 0 ? (
                         <View style={styles.emptyState}>
                             <Text style={styles.emptyStateText}>No accounts yet</Text>
@@ -129,11 +126,11 @@ export default function AdminScreen() {
                                     {/* Progress Bar */}
                                     <View style={styles.progressSection}>
                                         <View style={styles.progressBar}>
-                                            <View 
+                                            <View
                                                 style={[
-                                                    styles.progressFill, 
+                                                    styles.progressFill,
                                                     { width: `${percentage}%`, backgroundColor: color }
-                                                ]} 
+                                                ]}
                                             />
                                         </View>
                                         <Text style={styles.progressText}>{percentage}% Setup Complete</Text>

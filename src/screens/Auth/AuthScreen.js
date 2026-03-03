@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { 
-    View, 
-    Text, 
-    StyleSheet, 
-    TouchableOpacity, 
-    TextInput, 
-    ActivityIndicator, 
+import {
+    View,
+    Text,
+    StyleSheet,
+    TouchableOpacity,
+    TextInput,
+    ActivityIndicator,
     Alert,
     KeyboardAvoidingView,
     Platform,
@@ -15,7 +15,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Mail, Lock, Heart, ArrowRight, Eye, EyeOff } from 'lucide-react-native';
 import * as Haptics from 'expo-haptics';
-import { supabase } from '../../lib/supabase';
+import { auth } from '../../lib/firebase';
+import {
+    createUserWithEmailAndPassword,
+    signInWithEmailAndPassword,
+    sendPasswordResetEmail
+} from 'firebase/auth';
 
 export default function AuthScreen() {
     const [isSignUp, setIsSignUp] = useState(false);
@@ -55,22 +60,13 @@ export default function AuthScreen() {
 
         setIsLoading(true);
         try {
-            const { data, error } = await supabase.auth.signUp({
-                email,
-                password,
-            });
-
-            if (error) {
-                Alert.alert('Sign Up Error', error.message);
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-            } else {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                Alert.alert('Success', 'Account created! Please check your email to verify your account.');
-                setEmail('');
-                setPassword('');
-                setConfirmPassword('');
-                setIsSignUp(false);
-            }
+            await createUserWithEmailAndPassword(auth, email.trim(), password);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            Alert.alert('Success', 'Account created! Welcome.');
+            setEmail('');
+            setPassword('');
+            setConfirmPassword('');
+            setIsSignUp(false);
         } catch (err) {
             Alert.alert('Error', err.message);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -92,18 +88,9 @@ export default function AuthScreen() {
 
         setIsLoading(true);
         try {
-            const { data, error } = await supabase.auth.signInWithPassword({
-                email,
-                password,
-            });
-
-            if (error) {
-                Alert.alert('Sign In Error', error.message);
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-            } else {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                // Navigation will happen automatically via context
-            }
+            await signInWithEmailAndPassword(auth, email.trim(), password);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            // Navigation will happen automatically via context
         } catch (err) {
             Alert.alert('Error', err.message);
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -125,16 +112,12 @@ export default function AuthScreen() {
 
         setIsLoading(true);
         try {
-            const { error } = await supabase.auth.resetPasswordForEmail(email);
+            await sendPasswordResetEmail(auth, email.trim());
 
-            if (error) {
-                Alert.alert('Error', error.message);
-            } else {
-                Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                Alert.alert('Success', 'Password reset email sent! Check your inbox.');
-                setIsForgotPassword(false);
-                setEmail('');
-            }
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            Alert.alert('Success', 'Password reset email sent! Check your inbox.');
+            setIsForgotPassword(false);
+            setEmail('');
         } catch (err) {
             Alert.alert('Error', err.message);
         } finally {
@@ -145,8 +128,8 @@ export default function AuthScreen() {
     return (
         <LinearGradient colors={['#1a0a2e', '#16213e', '#0f3460']} style={styles.container}>
             <SafeAreaView style={styles.safeArea}>
-                <KeyboardAvoidingView 
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                     style={styles.keyboardView}
                 >
                     <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -154,11 +137,11 @@ export default function AuthScreen() {
                             <Heart size={50} color="#ff6b9d" />
                             <Text style={styles.title}>Pregnancy Tracker</Text>
                             <Text style={styles.subtitle}>
-                                {isForgotPassword 
-                                    ? 'Reset your password' 
-                                    : isSignUp 
-                                    ? 'Create your account' 
-                                    : 'Welcome back, Mom'}
+                                {isForgotPassword
+                                    ? 'Reset your password'
+                                    : isSignUp
+                                        ? 'Create your account'
+                                        : 'Welcome back, Mom'}
                             </Text>
                         </View>
 

@@ -1,8 +1,9 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
+import { auth, db } from '../lib/firebase';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
 
 const PregnancyContext = createContext();
-
-import { supabase } from '../lib/supabase';
 
 export const PregnancyProvider = ({ children }) => {
     // Auth State
@@ -30,47 +31,25 @@ export const PregnancyProvider = ({ children }) => {
 
     // Auth state listener
     useEffect(() => {
-        // Check current session
-        const checkAuth = async () => {
-            try {
-                const { data: { session } } = await supabase.auth.getSession();
-                if (session?.user) {
-                    setUser(session.user);
-                    setIsAuthenticated(true);
-                    // Load name from user metadata
-                    const userName = session.user.user_metadata?.name || "Mom-to-be";
-                    setName(userName);
-                } else {
-                    setIsAuthenticated(false);
-                }
-            } catch (err) {
-                console.error('Auth check error:', err);
-            } finally {
-                setAuthLoading(false);
+        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+            if (firebaseUser) {
+                setUser(firebaseUser);
+                setIsAuthenticated(true);
+            } else {
+                setUser(null);
+                setIsAuthenticated(false);
+                // Reset state on logout
+                setOnboardingComplete(false);
+                setLogs({});
+                setName("Mom-to-be");
+                setDueDate(new Date(new Date().setDate(new Date().getDate() + 196)));
+                setWaterTarget(2500);
+                setSleepGoal(8);
             }
-        };
+            setAuthLoading(false);
+        });
 
-        checkAuth();
-
-        // Listen for auth state changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            async (event, session) => {
-                if (session?.user) {
-                    setUser(session.user);
-                    setIsAuthenticated(true);
-                    // Load name from user metadata
-                    const userName = session.user.user_metadata?.name || "Mom-to-be";
-                    setName(userName);
-                } else {
-                    setUser(null);
-                    setIsAuthenticated(false);
-                }
-            }
-        );
-
-        return () => {
-            subscription?.unsubscribe();
-        };
+        return () => unsubscribe();
     }, []);
 
     // Fetch user profile and logs on authentication
@@ -85,18 +64,11 @@ export const PregnancyProvider = ({ children }) => {
 
     const fetchUserProfile = async () => {
         try {
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', user.id)
-                .single();
+            const profileRef = doc(db, 'profiles', user.uid);
+            const docSnap = await getDoc(profileRef);
 
-            if (error && error.code !== 'PGRST116') {
-                console.log('Profile fetch error:', error.message);
-                return;
-            }
-
-            if (data) {
+            if (docSnap.exists()) {
+                const data = docSnap.data();
                 setName(data.name || "Mom-to-be");
                 setDueDate(data.due_date ? new Date(data.due_date) : new Date(new Date().setDate(new Date().getDate() + 196)));
                 setWaterTarget(data.water_target || 2500);
@@ -104,10 +76,8 @@ export const PregnancyProvider = ({ children }) => {
                 setOnboardingComplete(data.onboarding_complete || false);
 
                 // Backfill email if missing in profile but available in auth
-                if (!data.email && user && user.email) {
-                    supabase.from('profiles').update({ email: user.email }).eq('id', user.id).then(({ error }) => {
-                        if (error) console.log('Error backfilling email:', error.message);
-                    });
+                if (!data.email && user.email) {
+                    await updateDoc(profileRef, { email: user.email }).catch(err => console.log('Error backfilling email:', err));
                 }
             } else {
                 // First time user - create profile
@@ -120,8 +90,8 @@ export const PregnancyProvider = ({ children }) => {
 
     const createUserProfile = async () => {
         try {
-            await supabase.from('profiles').insert({
-                id: user.id,
+            await setDoc(doc(db, 'profiles', user.uid), {
+                id: user.uid,
                 email: user.email,
                 name: 'Mom-to-be',
                 due_date: new Date(new Date().setDate(new Date().getDate() + 196)).toISOString().split('T')[0],
@@ -137,21 +107,16 @@ export const PregnancyProvider = ({ children }) => {
 
     const fetchLogs = async () => {
         try {
-            const { data, error } = await supabase
-                .from('daily_logs')
-                .select('date, data')
-                .eq('user_id', user.id);
+            const logsRef = collection(db, 'daily_logs');
+            const q = query(logsRef, where('user_id', '==', user.uid));
+            const querySnapshot = await getDocs(q);
 
-            if (error) {
-                console.log('Supabase fetch error (might be table missing):', error.message);
-                return;
-            }
-
-            if (data) {
-                const loadedLogs = data.reduce((acc, row) => {
-                    acc[row.date] = row.data;
-                    return acc;
-                }, {});
+            if (!querySnapshot.empty) {
+                const loadedLogs = {};
+                querySnapshot.forEach((doc) => {
+                    const row = doc.data();
+                    loadedLogs[row.date] = row.data;
+                });
                 setLogs(loadedLogs);
             }
         } catch (err) {
@@ -171,89 +136,75 @@ export const PregnancyProvider = ({ children }) => {
         mood: logEntry.mood ?? null
     };
 
-    // Save name to Supabase user metadata
-    const updateNameInSupabase = async (newName) => {
+    // Save name to Supabase user metadata -> changed to Firebase target
+    const updateNameInFirebase = async (newName) => {
         try {
             if (user) {
-                // Update in profiles table
-                await supabase
-                    .from('profiles')
-                    .update({ name: newName })
-                    .eq('id', user.id);
+                const profileRef = doc(db, 'profiles', user.uid);
+                await updateDoc(profileRef, { name: newName });
             }
         } catch (err) {
             console.error('Error updating name:', err);
         }
     };
 
-    // Override setName to also save to Supabase
     const handleSetName = (newName) => {
         setName(newName);
-        updateNameInSupabase(newName);
+        updateNameInFirebase(newName);
     };
 
-    // Save due date to Supabase
-    const handleSetDueDate = (newDate) => {
+    const handleSetDueDate = async (newDate) => {
         setDueDate(newDate);
         if (user) {
-            supabase
-                .from('profiles')
-                .update({ due_date: newDate.toISOString().split('T')[0] })
-                .eq('id', user.id)
-                .then(({ error }) => {
-                    if (error) console.error('Error updating due date:', error);
-                });
+            try {
+                const profileRef = doc(db, 'profiles', user.uid);
+                await updateDoc(profileRef, { due_date: newDate.toISOString().split('T')[0] });
+            } catch (err) {
+                console.error('Error updating due date:', err);
+            }
         }
     };
 
-    // Save water target to Supabase
-    const handleSetWaterTarget = (newTarget) => {
+    const handleSetWaterTarget = async (newTarget) => {
         setWaterTarget(newTarget);
         if (user) {
-            supabase
-                .from('profiles')
-                .update({ water_target: newTarget })
-                .eq('id', user.id)
-                .then(({ error }) => {
-                    if (error) console.error('Error updating water target:', error);
-                });
+            try {
+                const profileRef = doc(db, 'profiles', user.uid);
+                await updateDoc(profileRef, { water_target: newTarget });
+            } catch (err) {
+                console.error('Error updating water target:', err);
+            }
         }
     };
 
-    // Save sleep goal to Supabase
-    const handleSetSleepGoal = (newGoal) => {
+    const handleSetSleepGoal = async (newGoal) => {
         setSleepGoal(newGoal);
         if (user) {
-            supabase
-                .from('profiles')
-                .update({ sleep_goal: newGoal })
-                .eq('id', user.id)
-                .then(({ error }) => {
-                    if (error) console.error('Error updating sleep goal:', error);
-                });
+            try {
+                const profileRef = doc(db, 'profiles', user.uid);
+                await updateDoc(profileRef, { sleep_goal: newGoal });
+            } catch (err) {
+                console.error('Error updating sleep goal:', err);
+            }
         }
     };
 
-    // Save onboarding complete status to Supabase
-    const handleSetOnboardingComplete = (value) => {
+    const handleSetOnboardingComplete = async (value) => {
         setOnboardingComplete(value);
         if (user) {
-            supabase
-                .from('profiles')
-                .update({ onboarding_complete: value })
-                .eq('id', user.id)
-                .then(({ error }) => {
-                    if (error) console.error('Error updating onboarding status:', error);
-                });
+            try {
+                const profileRef = doc(db, 'profiles', user.uid);
+                await updateDoc(profileRef, { onboarding_complete: value });
+            } catch (err) {
+                console.error('Error updating onboarding status:', err);
+            }
         }
     };
 
-    // Setters that update the LOGS for today
     const setWeight = (val) => updateLog('weight', val);
     const setWater = (val) => updateLog('water', val);
     const setSleep = (val) => updateLog('sleep', val);
     const setKickCount = (val) => {
-        // Handle explicit value or function update
         const newVal = typeof val === 'function' ? val(currentLog.kicks) : val;
         updateLog('kicks', newVal);
     };
@@ -273,15 +224,18 @@ export const PregnancyProvider = ({ children }) => {
                 [key]: value
             };
 
-            // Sync to Supabase
+            // Sync to Firebase
             if (user) {
-                supabase.from('daily_logs').upsert({
-                    user_id: user.id,
-                    date: todayKey,
-                    data: newDayLog
-                }, { onConflict: 'user_id, date' }).then(({ error }) => {
-                    if (error) console.error("Supabase Sync Error:", error.message);
-                });
+                try {
+                    const logRef = doc(db, 'daily_logs', `${user.uid}_${todayKey}`);
+                    setDoc(logRef, {
+                        user_id: user.uid,
+                        date: todayKey,
+                        data: newDayLog
+                    }, { merge: true }).catch(err => {
+                        console.error("Firebase Sync Error:", err.message);
+                    });
+                } catch (e) { }
             }
 
             return {
@@ -317,7 +271,6 @@ export const PregnancyProvider = ({ children }) => {
     const getHistory = () => {
         if (!stats) return [];
 
-        // precise calculation requires looping through logs
         // Group logs by pregnancy week
         const historyMap = {};
 
@@ -345,11 +298,9 @@ export const PregnancyProvider = ({ children }) => {
             }
 
             const weekData = historyMap[week];
-            // Update min/max dates for the week range
             if (entryDate < weekData.dateStart) weekData.dateStart = entryDate;
             if (entryDate > weekData.dateEnd) weekData.dateEnd = entryDate;
 
-            // Push data
             if (entry.weight) weekData.weights.push(entry.weight);
             if (entry.water) weekData.water.push(entry.water);
             if (entry.sleep?.hours) weekData.sleep.push(entry.sleep.hours + (entry.sleep.minutes / 60));
@@ -366,7 +317,6 @@ export const PregnancyProvider = ({ children }) => {
             const avgSleepRaw = data.sleep.length ? (data.sleep.reduce((a, b) => a + b, 0) / data.sleep.length) : 0;
             const avgSleep = avgSleepRaw ? `${Math.floor(avgSleepRaw)}h ${Math.round((avgSleepRaw % 1) * 60)}m` : '-';
 
-            // Most frequent mood
             const moodCounts = data.moods.reduce((acc, curr) => { acc[curr] = (acc[curr] || 0) + 1; return acc; }, {});
             const topMood = Object.keys(moodCounts).sort((a, b) => moodCounts[b] - moodCounts[a])[0] || '-';
 
@@ -387,10 +337,7 @@ export const PregnancyProvider = ({ children }) => {
 
     const logout = async () => {
         try {
-            const { error } = await supabase.auth.signOut();
-            if (error) {
-                console.error('Logout error:', error);
-            }
+            await signOut(auth);
         } catch (err) {
             console.error('Error during logout:', err);
         }
@@ -398,21 +345,18 @@ export const PregnancyProvider = ({ children }) => {
 
     return (
         <PregnancyContext.Provider value={{
-            // Auth
             user, isAuthenticated, authLoading, logout,
-            // Pregnancy tracking
             dueDate, setDueDate: handleSetDueDate,
             name, setName: handleSetName,
             onboardingComplete, setOnboardingComplete: handleSetOnboardingComplete,
             stats,
-            // Expose properties from CURRENT DAY log
             weight: currentLog.weight, setWeight,
             water: currentLog.water, setWater, waterTarget, setWaterTarget: handleSetWaterTarget,
             sleep: currentLog.sleep, setSleep, sleepGoal, setSleepGoal: handleSetSleepGoal,
             kickCount: currentLog.kicks, setKickCount,
-            history: history, // Dynamic history
-            logs, // Expose raw logs if needed
-            updateLog // Expose generic update if needed
+            history: history,
+            logs,
+            updateLog
         }}>
             {children}
         </PregnancyContext.Provider>
